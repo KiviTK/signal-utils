@@ -73,3 +73,26 @@ std::vector<datapoint<int, float>> generate_triangle_wave(float frequency, float
  * @return std::vector<datapoint<int, float>> The generated noise wave
  */
 std::vector<datapoint<int, float>> generate_noise_wave(float amplitude, float sample_rate, float duration);
+
+/**
+ * @brief Generate a chirp signal
+ *
+ * @param start_frequency The start frequency of the chirp signal
+ * @param end_frequency The end frequency of the chirp signal
+ * @param amplitude The amplitude of the chirp signal
+ * @param sample_rate The sample rate of the chirp signal
+ * @param duration The duration of the chirp signal
+ * @return std::vector<datapoint<int, float>> The generated chirp signal
+ */
+std::vector<datapoint<int, float>> generate_chirp_signal(float start_frequency, float end_frequency, float amplitude, float sample_rate, float duration);
+
+/**
+ * @brief Generate a pulse signal
+
+ * @param amplitude The amplitude of the pulse signal
+ * @param sample_rate The sample rate of the pulse signal
+ * @param duration The duration of the pulse signal
+ * @return std::vector<datapoint<int, float>> The generated pulse signal
+ */
+
+std::vector<datapoint<int, float>> generate_pulse_signal(float amplitude, float sample_rate, float duration);

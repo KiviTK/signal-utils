@@ -9,4 +9,5 @@ add_executable(signaling_utilities main.cpp sigutil/envelope_detector.cpp siguti
         sigutil/finite_impuse_response_filter.cpp
         sigutil/finite_impuse_response_filter.h
         sigutil/generator.cpp
-        sigutil/generator.h)
+        sigutil/generator.h
+        filters/low_pass_test_filter_5param.h)
