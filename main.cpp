@@ -7,6 +7,114 @@
 #include "sigutil/finite_impuse_response_filter.h"
 #include "sigutil/generator.h"
 
+#include "sigutil/build_block.h"
+
+#include "imgui.h"
+#include "imgui_impl_sdl.h"
+#include "imgui_impl_sdlrenderer.h"
+
+#include <thread>
+#include <atomic>
+#include "sdl_utils/sdl_utils.h"
+
+#include <SDL.h>
+#include <SDL_ttf.h>
+#include "sdl_utils/render_configuration.h"
+
+#include "main_input_handler.h"
+#undef main
+
+void SetupImGuiStyle()
+{
+    // Photoshop style by Derydoca from ImThemes
+    ImGuiStyle& style = ImGui::GetStyle();
+
+    style.Alpha = 1.0f;
+    style.DisabledAlpha = 0.6000000238418579f;
+    style.WindowPadding = ImVec2(8.0f, 8.0f);
+    style.WindowRounding = 4.0f;
+    style.WindowBorderSize = 1.0f;
+    style.WindowMinSize = ImVec2(32.0f, 32.0f);
+    style.WindowTitleAlign = ImVec2(0.0f, 0.5f);
+    style.WindowMenuButtonPosition = ImGuiDir_Left;
+    style.ChildRounding = 4.0f;
+    style.ChildBorderSize = 1.0f;
+    style.PopupRounding = 2.0f;
+    style.PopupBorderSize = 1.0f;
+    style.FramePadding = ImVec2(4.0f, 3.0f);
+    style.FrameRounding = 2.0f;
+    style.FrameBorderSize = 1.0f;
+    style.ItemSpacing = ImVec2(8.0f, 4.0f);
+    style.ItemInnerSpacing = ImVec2(4.0f, 4.0f);
+    style.CellPadding = ImVec2(4.0f, 2.0f);
+    style.IndentSpacing = 21.0f;
+    style.ColumnsMinSpacing = 6.0f;
+    style.ScrollbarSize = 13.0f;
+    style.ScrollbarRounding = 12.0f;
+    style.GrabMinSize = 7.0f;
+    style.GrabRounding = 0.0f;
+    style.TabRounding = 0.0f;
+    style.TabBorderSize = 1.0f;
+    style.TabMinWidthForCloseButton = 0.0f;
+    style.ColorButtonPosition = ImGuiDir_Right;
+    style.ButtonTextAlign = ImVec2(0.5f, 0.5f);
+    style.SelectableTextAlign = ImVec2(0.0f, 0.0f);
+
+    style.Colors[ImGuiCol_Text] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+    style.Colors[ImGuiCol_TextDisabled] = ImVec4(0.4980392158031464f, 0.4980392158031464f, 0.4980392158031464f, 1.0f);
+    style.Colors[ImGuiCol_WindowBg] = ImVec4(0.1764705926179886f, 0.1764705926179886f, 0.1764705926179886f, 1.0f);
+    style.Colors[ImGuiCol_ChildBg] = ImVec4(0.2784313857555389f, 0.2784313857555389f, 0.2784313857555389f, 0.0f);
+    style.Colors[ImGuiCol_PopupBg] = ImVec4(0.3098039329051971f, 0.3098039329051971f, 0.3098039329051971f, 1.0f);
+    style.Colors[ImGuiCol_Border] = ImVec4(0.2627451121807098f, 0.2627451121807098f, 0.2627451121807098f, 1.0f);
+    style.Colors[ImGuiCol_BorderShadow] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
+    style.Colors[ImGuiCol_FrameBg] = ImVec4(0.1568627506494522f, 0.1568627506494522f, 0.1568627506494522f, 1.0f);
+    style.Colors[ImGuiCol_FrameBgHovered] = ImVec4(0.2000000029802322f, 0.2000000029802322f, 0.2000000029802322f, 1.0f);
+    style.Colors[ImGuiCol_FrameBgActive] = ImVec4(0.2784313857555389f, 0.2784313857555389f, 0.2784313857555389f, 1.0f);
+    style.Colors[ImGuiCol_TitleBg] = ImVec4(0.1450980454683304f, 0.1450980454683304f, 0.1450980454683304f, 1.0f);
+    style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.1450980454683304f, 0.1450980454683304f, 0.1450980454683304f, 1.0f);
+    style.Colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.1450980454683304f, 0.1450980454683304f, 0.1450980454683304f, 1.0f);
+    style.Colors[ImGuiCol_MenuBarBg] = ImVec4(0.1921568661928177f, 0.1921568661928177f, 0.1921568661928177f, 1.0f);
+    style.Colors[ImGuiCol_ScrollbarBg] = ImVec4(0.1568627506494522f, 0.1568627506494522f, 0.1568627506494522f, 1.0f);
+    style.Colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.2745098173618317f, 0.2745098173618317f, 0.2745098173618317f, 1.0f);
+    style.Colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.2980392277240753f, 0.2980392277240753f, 0.2980392277240753f, 1.0f);
+    style.Colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(1.0f, 0.3882353007793427f, 0.0f, 1.0f);
+    style.Colors[ImGuiCol_CheckMark] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+    style.Colors[ImGuiCol_SliderGrab] = ImVec4(0.3882353007793427f, 0.3882353007793427f, 0.3882353007793427f, 1.0f);
+    style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(1.0f, 0.3882353007793427f, 0.0f, 1.0f);
+    style.Colors[ImGuiCol_Button] = ImVec4(1.0f, 1.0f, 1.0f, 0.0f);
+    style.Colors[ImGuiCol_ButtonHovered] = ImVec4(1.0f, 1.0f, 1.0f, 0.1560000032186508f);
+    style.Colors[ImGuiCol_ButtonActive] = ImVec4(1.0f, 1.0f, 1.0f, 0.3910000026226044f);
+    style.Colors[ImGuiCol_Header] = ImVec4(0.3098039329051971f, 0.3098039329051971f, 0.3098039329051971f, 1.0f);
+    style.Colors[ImGuiCol_HeaderHovered] = ImVec4(0.4666666686534882f, 0.4666666686534882f, 0.4666666686534882f, 1.0f);
+    style.Colors[ImGuiCol_HeaderActive] = ImVec4(0.4666666686534882f, 0.4666666686534882f, 0.4666666686534882f, 1.0f);
+    style.Colors[ImGuiCol_Separator] = ImVec4(0.2627451121807098f, 0.2627451121807098f, 0.2627451121807098f, 1.0f);
+    style.Colors[ImGuiCol_SeparatorHovered] = ImVec4(0.3882353007793427f, 0.3882353007793427f, 0.3882353007793427f, 1.0f);
+    style.Colors[ImGuiCol_SeparatorActive] = ImVec4(1.0f, 0.3882353007793427f, 0.0f, 1.0f);
+    style.Colors[ImGuiCol_ResizeGrip] = ImVec4(1.0f, 1.0f, 1.0f, 0.25f);
+    style.Colors[ImGuiCol_ResizeGripHovered] = ImVec4(1.0f, 1.0f, 1.0f, 0.6700000166893005f);
+    style.Colors[ImGuiCol_ResizeGripActive] = ImVec4(1.0f, 0.3882353007793427f, 0.0f, 1.0f);
+    style.Colors[ImGuiCol_Tab] = ImVec4(0.09411764889955521f, 0.09411764889955521f, 0.09411764889955521f, 1.0f);
+    style.Colors[ImGuiCol_TabHovered] = ImVec4(0.3490196168422699f, 0.3490196168422699f, 0.3490196168422699f, 1.0f);
+    style.Colors[ImGuiCol_TabActive] = ImVec4(0.1921568661928177f, 0.1921568661928177f, 0.1921568661928177f, 1.0f);
+    style.Colors[ImGuiCol_TabUnfocused] = ImVec4(0.09411764889955521f, 0.09411764889955521f, 0.09411764889955521f, 1.0f);
+    style.Colors[ImGuiCol_TabUnfocusedActive] = ImVec4(0.1921568661928177f, 0.1921568661928177f, 0.1921568661928177f, 1.0f);
+    style.Colors[ImGuiCol_PlotLines] = ImVec4(0.4666666686534882f, 0.4666666686534882f, 0.4666666686534882f, 1.0f);
+    style.Colors[ImGuiCol_PlotLinesHovered] = ImVec4(1.0f, 0.3882353007793427f, 0.0f, 1.0f);
+    style.Colors[ImGuiCol_PlotHistogram] = ImVec4(0.5843137502670288f, 0.5843137502670288f, 0.5843137502670288f, 1.0f);
+    style.Colors[ImGuiCol_PlotHistogramHovered] = ImVec4(1.0f, 0.3882353007793427f, 0.0f, 1.0f);
+    style.Colors[ImGuiCol_TableHeaderBg] = ImVec4(0.1882352977991104f, 0.1882352977991104f, 0.2000000029802322f, 1.0f);
+    style.Colors[ImGuiCol_TableBorderStrong] = ImVec4(0.3098039329051971f, 0.3098039329051971f, 0.3490196168422699f, 1.0f);
+    style.Colors[ImGuiCol_TableBorderLight] = ImVec4(0.2274509817361832f, 0.2274509817361832f, 0.2470588237047195f, 1.0f);
+    style.Colors[ImGuiCol_TableRowBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
+    style.Colors[ImGuiCol_TableRowBgAlt] = ImVec4(1.0f, 1.0f, 1.0f, 0.05999999865889549f);
+    style.Colors[ImGuiCol_TextSelectedBg] = ImVec4(1.0f, 1.0f, 1.0f, 0.1560000032186508f);
+    style.Colors[ImGuiCol_DragDropTarget] = ImVec4(1.0f, 0.3882353007793427f, 0.0f, 1.0f);
+    style.Colors[ImGuiCol_NavHighlight] = ImVec4(1.0f, 0.3882353007793427f, 0.0f, 1.0f);
+    style.Colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.0f, 0.3882353007793427f, 0.0f, 1.0f);
+    style.Colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.5860000252723694f);
+    style.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.5860000252723694f);
+}
+
 void am_test()
 {
     auto start = std::chrono::high_resolution_clock::now();
@@ -144,7 +252,138 @@ void fir_impulse_response_test()
 int main()
 {
     // Run the tests
-    fir_test();
+/*    fir_test();
     fir_impulse_response_test();
-    am_test();
+    am_test();*/
+
+    SDL_Init(SDL_INIT_VIDEO);
+    TTF_Init();
+
+
+
+    auto w = SDL_CreateWindow("Test", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, SDL_WINDOW_SHOWN);
+    auto r = SDL_CreateRenderer(w, -1, SDL_RENDERER_ACCELERATED);
+
+    render_config rc;
+    rc.r = r;
+    rc.grid_unit_size = 50;
+    rc.screen_w = 1280;
+    rc.screen_h = 720;
+
+    rc.ui_font = TTF_OpenFont("OCRAEXT.TTF", 40);
+
+    device_pool dp;
+    dp.use_render_config(rc);
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGui_ImplSDL2_InitForSDLRenderer(w, r);
+    ImGui_ImplSDLRenderer_Init(r);
+
+    SetupImGuiStyle();
+
+
+    // Create a function generator
+    int external_timer = 0;
+    function_generator f;
+    file_sink fs("output.txt");
+
+    std::vector<float> filter_cfs =
+#include "filters/low_pass_test_filter.h" // This file is generated by octave_scripts/generate_fir.m
+    ;
+
+    fir_filter filter(filter_cfs);
+
+    // Create a file data source
+    file_datasource fds("data.txt");
+
+    // Create a device pool
+
+
+    dp.add_device(&fds);
+    dp.add_device(&f);
+    dp.add_device(&fs);
+    dp.add_device(&filter);
+
+    // Connect the devices
+
+    std::atomic<bool> should_stop = false;
+
+    std::atomic<bool> simulation_status = false;
+
+    // Create the data processing thread
+    std::thread data_proc_thread([&dp, &should_stop, &simulation_status](){
+        while (!should_stop)
+        {
+            if (simulation_status)
+            {
+                bool datasource_status = dp.update_devices();
+
+                if (!datasource_status)
+                {
+                    simulation_status = false;
+                    should_stop = true;
+                }
+            }
+        }
+    });
+
+    for (;;)
+    {
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            ImGui_ImplSDL2_ProcessEvent(&event);
+            dp.handle_input(event);
+            main_input_handler(rc, event);
+        }
+
+        ImGui_ImplSDLRenderer_NewFrame();
+        ImGui_ImplSDL2_NewFrame();
+        SDL_SetRenderDrawColor(r, 80, 80, 80, 255);
+        SDL_RenderClear(r);
+
+        sdl_draw_grid(rc, 50);
+
+        ImGui::NewFrame();
+
+        ImGui::Begin("Main");
+        if (ImGui::Button("Stop"))
+        {
+            should_stop = true;
+        }
+
+        // Show mouse grid position
+        int mx, my;
+        SDL_GetMouseState(&mx, &my);
+        auto grid_pos = screen_to_grid(rc, mx, my);
+        ImGui::Text("Mouse grid position: %d, %d", grid_pos.x, grid_pos.y);
+
+        // Show the camera position
+        ImGui::Text("Camera position: %d, %d", rc.cam_gx, rc.cam_gy);
+
+        if (ImGui::Button("Start Simulation"))
+        {
+            simulation_status = true;
+        }
+        ImGui::End();
+
+        dp.draw_devices(rc);
+        dp.show_ui();
+
+        //std::cout << "External timer: " << external_timer << "\t" << "Function generator output: " << f.get_outputs()[0]->value << std::endl;
+
+        ImGui::Render();
+        ImGui_ImplSDLRenderer_RenderDrawData(ImGui::GetDrawData());
+        SDL_RenderPresent(r);
+
+        if (should_stop)
+        {
+            break;
+        }
+    }
+    should_stop = true;
+
+    data_proc_thread.join();
 }
+
+
