@@ -41,6 +41,12 @@ public:
     virtual ~generic_device() = default;
     virtual bool is_datasource();
     virtual bool datasource_ended();
+    virtual void reset();
+    void raise_graphics_reset();
+    bool get_graphics_reset_flag();
+    void unset_graphics_reset_flag();
+private:
+    bool graphics_reset = false;
 };
 
 class device_pool
@@ -53,6 +59,7 @@ public:
     void show_ui();
     void draw_devices(render_config& r);
     void handle_input(SDL_Event& e);
+    void reset();
 private:
 
     struct dev_display_data
@@ -112,6 +119,8 @@ public:
 
     void show_ui() override;
 
+    void reset() override;
+
     std::string get_name() override;
 
     void write_outputs() override;
@@ -164,7 +173,33 @@ public:
     bool is_datasource() override;
     bool datasource_ended() override;
 
+    void reset() override;
+
     int data_index = 0;
     std::string filename;
     std::vector<float> data;
+};
+
+class multiplier : public generic_device
+{
+public:
+    void show_ui() override;
+
+    std::string get_name() override;
+
+    void write_outputs() override;
+    void read_inputs() override;
+
+    std::vector<io_input_endpoint*> get_inputs() override;
+    std::vector<io_output_endpoint*> get_outputs() override;
+
+    float gain = 1.0f;
+    float weight1 = 1.0f;
+    float weight2 = 1.0f;
+
+    float value = 0.0f;
+
+    io_input_endpoint input1;
+    io_input_endpoint input2;
+    io_output_endpoint output;
 };

@@ -1,3 +1,4 @@
+figure(2)
 clf
 hold on
 load('output.txt', "-ascii")

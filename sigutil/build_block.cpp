@@ -20,7 +20,8 @@ std::vector<io_output_endpoint *> function_generator::get_outputs()
 void function_generator::show_ui()
 {
     ImGui::Begin("Function Generator");
-    ImGui::SliderFloat("Frequency", &frequency, 1, 200);
+
+    ImGui::InputFloat("Frequency", &frequency);
 
 
     if (ImGui::Button("On/Off"))
@@ -119,6 +120,27 @@ void device_pool::show_ui()
 
 void device_pool::draw_devices( render_config& r )
 {
+    // Check and handle the graphics reset flag for each device
+    for (auto device : devices)
+    {
+        if (device->get_graphics_reset_flag())
+        {
+            device->unset_graphics_reset_flag();
+
+            // Regenerate the name texture with SDL TTF
+            if (rc != nullptr)
+            {
+                SDL_Surface* name_surface = TTF_RenderText_Solid(rc->ui_font, device->get_name().c_str(), {255, 255, 255});
+                display_data[device].name_texture = SDL_CreateTextureFromSurface(rc->r, name_surface);
+                display_data[device].name_rect = {0, 0, name_surface->w, name_surface->h};
+                SDL_FreeSurface(name_surface);
+            }
+        }
+    }
+
+
+
+
     // If in connecting mode, draw a line from the selected output port to the mouse cursor
     if (connecting_mode && connecting_output != nullptr)
     {
@@ -238,6 +260,7 @@ void device_pool::draw_devices( render_config& r )
         }
 
         // Draw the connection lines coming into the input ports
+        int input_index = 0;
         for (auto & input : inputs)
         {
             if (input->connection != nullptr)
@@ -262,6 +285,12 @@ void device_pool::draw_devices( render_config& r )
                     }
                 }
 
+
+                if (port_index != 0)
+                {
+                    std::cout << "hey" << std::endl;
+                }
+
                 // Draw the connection line
 
                 SDL_SetRenderDrawColor(r.r, 0, 255, 0, 255);
@@ -270,7 +299,7 @@ void device_pool::draw_devices( render_config& r )
                 int y1 = (display_data[output_device].yu + r.cam_gy) * r.grid_unit_size + 15 + port_index * 20;
 
                 int x2 = (dev_data.second.xu + r.cam_gx) * r.grid_unit_size - 10;
-                int y2 = (dev_data.second.yu + r.cam_gy) * r.grid_unit_size + 15 + port_index * 20;
+                int y2 = (dev_data.second.yu + r.cam_gy) * r.grid_unit_size + 15 + input_index * 20;
 
 
                 int x1o = x1 + 10;
@@ -281,10 +310,31 @@ void device_pool::draw_devices( render_config& r )
                 SDL_RenderDrawLine(r.r, x1o, y1o, x2o, y2o);
                 SDL_RenderDrawLine(r.r, x2o, y2o, x2, y2);
                 SDL_RenderDrawLine(r.r, x1o, y1o, x1, y1);
-
-
             }
+            input_index++;
         }
+    }
+
+    // In grabbing mode, draw a red crosshair at the mouse cursor if no device is grabbed yet
+    if (grabbing_mode)
+    {
+        int x, y;
+        SDL_GetMouseState(&x, &y);
+
+        SDL_SetRenderDrawColor(r.r, 255, 0, 0, 255);
+        SDL_RenderDrawLine(r.r, x - 10, y, x + 10, y);
+        SDL_RenderDrawLine(r.r, x, y - 10, x, y + 10);
+    }
+
+    // In connecting mode, draw a crosshair at the mouse cursor if no output is selected yet
+    if (connecting_mode)
+    {
+        int x, y;
+        SDL_GetMouseState(&x, &y);
+
+        SDL_SetRenderDrawColor(r.r, 0, 255, 0, 255);
+        SDL_RenderDrawLine(r.r, x - 10, y, x + 10, y);
+        SDL_RenderDrawLine(r.r, x, y - 10, x, y + 10);
     }
 }
 
@@ -295,6 +345,16 @@ void device_pool::use_render_config(render_config &r)
 
 void device_pool::handle_input(SDL_Event &e)
 {
+    // If in connecting mode, hide the cursor
+    if (connecting_mode || grabbing_mode)
+    {
+        SDL_ShowCursor(SDL_DISABLE);
+    }
+    else
+    {
+        SDL_ShowCursor(SDL_ENABLE);
+    }
+
     // Activate the connecting mode on the C key
     if (e.type == SDL_KEYDOWN)
     {
@@ -432,7 +492,7 @@ void device_pool::handle_input(SDL_Event &e)
                     rect.h = 2 * rc->grid_unit_size;
 
                     // Check if the mouse is inside the device rectangle in grid units, devices are 2 units wide
-                    if (gp.x >= dev_data.second.xu && gp.x <= dev_data.second.xu + 2 && gp.y >= dev_data.second.yu && gp.y <= dev_data.second.yu + 2)
+                    if (gp.x >= dev_data.second.xu && gp.x < dev_data.second.xu + 2 && gp.y >= dev_data.second.yu && gp.y < dev_data.second.yu + 2)
                     {
                         dev_data.second.is_ui_visible = !dev_data.second.is_ui_visible;
                     }
@@ -443,6 +503,14 @@ void device_pool::handle_input(SDL_Event &e)
     }
 
 
+}
+
+void device_pool::reset()
+{
+    for (auto device : devices)
+    {
+        device->reset();
+    }
 }
 
 file_sink::file_sink(std::string filename) : filename(std::move(filename))
@@ -461,7 +529,19 @@ file_sink::~file_sink()
 
 void file_sink::show_ui()
 {
+    static char intext[256] = {0};
 
+    ImGui::Begin("File Sink");
+
+    ImGui::InputText("Filename", intext, 256);
+
+    if (ImGui::Button("Save"))
+    {
+        filename = intext;
+        raise_graphics_reset();
+    }
+
+    ImGui::End();
 }
 
 std::string file_sink::get_name()
@@ -489,6 +569,18 @@ std::vector<io_output_endpoint *> file_sink::get_outputs()
     return {};
 }
 
+void file_sink::reset()
+{
+    // Write output to file
+    std::ofstream file(filename);
+    for (auto sample : memory)
+    {
+        file << sample << '\n';
+    }
+
+    memory.clear();
+}
+
 fir_filter::fir_filter(std::vector<float> coeffs) : filter(coeffs)
 {
 
@@ -511,7 +603,7 @@ void fir_filter::write_outputs()
 
 void fir_filter::read_inputs()
 {
-    filter << input.connection->value;
+    filter << input.read();
 }
 
 std::vector<io_input_endpoint *> fir_filter::get_inputs()
@@ -532,6 +624,26 @@ bool generic_device::is_datasource()
 bool generic_device::datasource_ended()
 {
     return false;
+}
+
+void generic_device::reset()
+{
+
+}
+
+void generic_device::raise_graphics_reset()
+{
+    graphics_reset = true;
+}
+
+bool generic_device::get_graphics_reset_flag()
+{
+    return graphics_reset;
+}
+
+void generic_device::unset_graphics_reset_flag()
+{
+    graphics_reset = false;
 }
 
 file_datasource::file_datasource(const std::string& filename) : filename(filename)
@@ -595,6 +707,11 @@ bool file_datasource::datasource_ended()
     return data_index >= data.size();
 }
 
+void file_datasource::reset()
+{
+    data_index = 0;
+}
+
 float io_input_endpoint::read()
 {
     if (connection != nullptr)
@@ -604,4 +721,38 @@ float io_input_endpoint::read()
 
 
     return 0;
+}
+
+void multiplier::show_ui()
+{
+    ImGui::Begin("Multiplier");
+    ImGui::InputFloat("Gain", &gain);
+    ImGui::InputFloat("Weight A", &weight1);
+    ImGui::InputFloat("Weight B", &weight2);
+    ImGui::End();
+}
+
+std::string multiplier::get_name()
+{
+    return "Multiplier";
+}
+
+void multiplier::write_outputs()
+{
+    output.value = value;
+}
+
+void multiplier::read_inputs()
+{
+    value = (weight1 * input1.read()) * (weight2 * input2.read());
+}
+
+std::vector<io_input_endpoint *> multiplier::get_inputs()
+{
+    return {&input1, &input2};
+}
+
+std::vector<io_output_endpoint *> multiplier::get_outputs()
+{
+    return {&output};
 }
